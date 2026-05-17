@@ -1,15 +1,20 @@
 import { useState, useEffect } from 'react'
 
 export function useGoogleAuth() {
-  const [token, setToken] = useState(localStorage.getItem('google_access_token'))
+  const [token, setToken] = useState(() => {
+    // Try to get Google token from either location
+    return localStorage.getItem('google_access_token') || localStorage.getItem('provider_token')
+  })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    // Load token from localStorage on mount
-    const stored = localStorage.getItem('google_access_token')
-    if (stored) {
-      setToken(stored)
+    // Load token from localStorage on mount - check both locations
+    const googleToken = localStorage.getItem('google_access_token')
+    const providerToken = localStorage.getItem('provider_token')
+    const storedToken = googleToken || providerToken
+    if (storedToken) {
+      setToken(storedToken)
     }
   }, [])
 
@@ -58,7 +63,9 @@ export function useGoogleAuth() {
       }
 
       const data = await response.json()
+      // Store under both keys for compatibility
       localStorage.setItem('google_access_token', data.access_token)
+      localStorage.setItem('provider_token', data.access_token)
       setToken(data.access_token)
     } catch (err) {
       setError(err.message)
