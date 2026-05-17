@@ -18,7 +18,9 @@ export default async function handler(req, res) {
     )
 
     if (!listResponse.ok) {
-      throw new Error(`Gmail API error: ${listResponse.status}`)
+      const errorData = await listResponse.json().catch(() => ({}))
+      console.error('Gmail API error response:', { status: listResponse.status, data: errorData })
+      throw new Error(`Gmail API error: ${listResponse.status} - ${errorData.error?.message || 'Unknown error'}`)
     }
 
     const listData = await listResponse.json()
