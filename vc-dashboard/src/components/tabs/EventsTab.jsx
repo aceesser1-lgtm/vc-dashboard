@@ -2,13 +2,18 @@ import { useState } from 'react'
 import { useRealtime } from '../../hooks/useRealtime'
 import { supabase } from '../../lib/supabase'
 import { format } from 'date-fns'
-import { Plus, X, DollarSign } from 'lucide-react'
+import { Plus, X, DollarSign, Calendar } from 'lucide-react'
+import LoadingSpinner from '../ui/LoadingSpinner'
+import EmptyState from '../ui/EmptyState'
+import ErrorAlert from '../ui/ErrorAlert'
 
 export default function EventsTab() {
-  const { data: events } = useRealtime('events')
+  const { data: events, loading } = useRealtime('events')
   const [view, setView] = useState('list')
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
+  const [error, setError] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     date: '',
@@ -27,29 +32,45 @@ export default function EventsTab() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    const payload = {
-      ...formData,
-      budget: formData.budget ? parseFloat(formData.budget) : null,
+    setError(null)
+
+    if (!formData.name || !formData.date) {
+      setError('Event name and date are required')
+      return
     }
 
-    if (editingId) {
-      await supabase.from('events').update(payload).eq('id', editingId)
-    } else {
-      await supabase.from('events').insert([payload])
-    }
+    setSubmitting(true)
+    try {
+      const payload = {
+        ...formData,
+        budget: formData.budget ? parseFloat(formData.budget) : null,
+      }
 
-    setFormData({
-      name: '',
-      date: '',
-      time: '',
-      venue: '',
-      catering: '',
-      budget: '',
-      status: 'Planning',
-      notes: '',
-    })
-    setShowForm(false)
-    setEditingId(null)
+      if (editingId) {
+        const { error: err } = await supabase.from('events').update(payload).eq('id', editingId)
+        if (err) throw err
+      } else {
+        const { error: err } = await supabase.from('events').insert([payload])
+        if (err) throw err
+      }
+
+      setFormData({
+        name: '',
+        date: '',
+        time: '',
+        venue: '',
+        catering: '',
+        budget: '',
+        status: 'Planning',
+        notes: '',
+      })
+      setShowForm(false)
+      setEditingId(null)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const handleEdit = (event) => {
@@ -81,6 +102,14 @@ export default function EventsTab() {
 
   const totalBudget = events.reduce((sum, e) => sum + (e.budget || 0), 0)
   const totalSpent = events.reduce((sum, e) => sum + (e.spent || 0), 0)
+
+  if (loading) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-screen">
+        <LoadingSpinner size="lg" />
+      </div>
+    )
+  }
 
   return (
     <div className="p-6 max-w-7xl">
@@ -136,8 +165,25 @@ export default function EventsTab() {
         </button>
       </div>
 
+      {/* Error Alert */}
+      {error && (
+        <div className="mb-6">
+          <ErrorAlert message={error} onClose={() => setError(null)} />
+        </div>
+      )}
+
+      {/* Empty State */}
+      {events.length === 0 && (
+        <EmptyState
+          icon={Calendar}
+          title="No events yet"
+          description="Create your first event to get started"
+          action={{ label: 'Create Event', onClick: () => setShowForm(true) }}
+        />
+      )}
+
       {/* Events List */}
-      {view === 'list' ? (
+      {events.length > 0 && (view === 'list' ? (
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
           <table className="w-full">
             <thead className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
@@ -229,6 +275,7 @@ export default function EventsTab() {
             </div>
           ))}
         </div>
+      )
       )}
 
       {/* Form Modal */}
@@ -319,9 +366,17 @@ export default function EventsTab() {
               <div className="flex gap-2 pt-2">
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium"
+                  disabled={submitting}
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-sm font-medium flex items-center justify-center gap-2"
                 >
-                  {editingId ? 'Update' : 'Create'}
+                  {submitting ? (
+                    <>
+                      <LoadingSpinner size="sm" />
+                      Saving...
+                    </>
+                  ) : (
+                    editingId ? 'Update' : 'Create'
+                  )}
                 </button>
                 <button
                   type="button"
