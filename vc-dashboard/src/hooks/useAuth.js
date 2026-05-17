@@ -3,16 +3,19 @@ import { supabase } from '../lib/supabase'
 
 export function useAuth() {
   const [user, setUser] = useState(null)
+  const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
+      setSession(session)
       setLoading(false)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
+      setSession(session)
     })
 
     return () => subscription.unsubscribe()
@@ -21,7 +24,10 @@ export function useAuth() {
   const signInWithGoogle = () =>
     supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin },
+      options: {
+        redirectTo: window.location.origin,
+        scopes: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar',
+      },
     })
 
   const signInWithEmail = (email, password) =>
@@ -32,5 +38,7 @@ export function useAuth() {
 
   const signOut = () => supabase.auth.signOut()
 
-  return { user, loading, signInWithGoogle, signInWithEmail, signUpWithEmail, signOut }
+  const providerToken = session?.provider_token || null
+
+  return { user, loading, providerToken, signInWithGoogle, signInWithEmail, signUpWithEmail, signOut }
 }

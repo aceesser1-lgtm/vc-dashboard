@@ -1,19 +1,22 @@
 import { useState } from 'react'
 import { useRealtime } from '../../hooks/useRealtime'
+import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../lib/supabase'
 import { format } from 'date-fns'
-import { Plus, X, DollarSign, Calendar } from 'lucide-react'
+import { Plus, X, DollarSign, Calendar, Check, Loader } from 'lucide-react'
 import LoadingSpinner from '../ui/LoadingSpinner'
 import EmptyState from '../ui/EmptyState'
 import ErrorAlert from '../ui/ErrorAlert'
 
 export default function EventsTab() {
+  const { providerToken } = useAuth()
   const { data: events, loading } = useRealtime('events')
   const [view, setView] = useState('list')
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const [syncing, setSyncing] = useState(null)
   const [formData, setFormData] = useState({
     name: '',
     date: '',
@@ -98,6 +101,44 @@ export default function EventsTab() {
       status: 'Planning',
       notes: '',
     })
+  }
+
+  const handleSyncCalendar = async (event) => {
+    if (!providerToken) {
+      setError('Please sign in with Google to sync events to your calendar')
+      return
+    }
+
+    setSyncing(event.id)
+    try {
+      const response = await fetch('/api/calendar/sync', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${providerToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ event }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to sync event to calendar')
+      }
+
+      const data = await response.json()
+
+      // Update event with google_calendar_event_id
+      const { error: err } = await supabase
+        .from('events')
+        .update({ google_calendar_event_id: data.google_calendar_event_id })
+        .eq('id', event.id)
+
+      if (err) throw err
+    } catch (err) {
+      console.error('Sync error:', err)
+      setError(err.message)
+    } finally {
+      setSyncing(null)
+    }
   }
 
   const totalBudget = events.reduce((sum, e) => sum + (e.budget || 0), 0)
@@ -216,6 +257,26 @@ export default function EventsTab() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
+                    {event.google_calendar_event_id && (
+                      <span className="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400 font-medium mr-3">
+                        <Check size={14} />
+                        Synced
+                      </span>
+                    )}
+                    {!event.google_calendar_event_id && (
+                      <button
+                        onClick={() => handleSyncCalendar(event)}
+                        disabled={syncing === event.id}
+                        className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 font-medium mr-3 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                      >
+                        {syncing === event.id ? (
+                          <Loader size={14} className="animate-spin" />
+                        ) : (
+                          <Calendar size={14} />
+                        )}
+                        Sync
+                      </button>
+                    )}
                     <button
                       onClick={() => handleEdit(event)}
                       className="text-xs text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 font-medium mr-3"
@@ -259,6 +320,25 @@ export default function EventsTab() {
                 </div>
               )}
               <div className="flex gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                {event.google_calendar_event_id ? (
+                  <div className="flex-1 text-xs text-green-600 dark:text-green-400 font-medium flex items-center justify-center gap-1">
+                    <Check size={14} />
+                    Synced
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => handleSyncCalendar(event)}
+                    disabled={syncing === event.id}
+                    className="flex-1 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
+                  >
+                    {syncing === event.id ? (
+                      <Loader size={14} className="animate-spin" />
+                    ) : (
+                      <Calendar size={14} />
+                    )}
+                    Sync
+                  </button>
+                )}
                 <button
                   onClick={() => handleEdit(event)}
                   className="flex-1 text-xs text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 font-medium"

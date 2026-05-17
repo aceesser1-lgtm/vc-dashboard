@@ -1,15 +1,19 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useRealtime } from '../../hooks/useRealtime'
-import { Mail, Search, Archive, CheckSquare, Plus, X } from 'lucide-react'
+import { useAuth } from '../../hooks/useAuth'
+import { Mail, Search, Archive, CheckSquare, Plus, X, Loader } from 'lucide-react'
 
 export default function EmailTab() {
+  const { providerToken } = useAuth()
   const { data: tasks } = useRealtime('tasks')
   const [emails, setEmails] = useState([])
   const [selectedEmail, setSelectedEmail] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [showTaskForm, setShowTaskForm] = useState(false)
+  const [actionLoading, setActionLoading] = useState(null)
+  const [error, setError] = useState(null)
   const [taskFormData, setTaskFormData] = useState({
     title: '',
     description: '',
@@ -17,63 +21,152 @@ export default function EmailTab() {
     due_date: '',
   })
 
-  // Simulate email fetching (Gmail API would go here)
+  // Fetch emails from Gmail or use mock data
   useEffect(() => {
-    const mockEmails = [
-      {
-        id: '1',
-        from: 'sarah.chen@vcfirm.com',
-        subject: 'Q2 LP Update Meeting',
-        preview: 'Hi team, let\'s schedule the Q2 LP update meeting for next month...',
-        date: new Date(Date.now() - 2 * 60 * 60 * 1000),
-        read: true,
-        body: 'Hi team, let\'s schedule the Q2 LP update meeting for next month. I\'ll send out the deck by EOD Friday. Please prepare your portfolio updates.',
-      },
-      {
-        id: '2',
-        from: 'marcus.w@vcfirm.com',
-        subject: 'Portfolio company check-in',
-        preview: 'Quick update on Q2 performance. Most companies tracking well...',
-        date: new Date(Date.now() - 4 * 60 * 60 * 1000),
-        read: false,
-        body: 'Quick update on Q2 performance. Most companies tracking well against plan. A few need attention on hiring. Will discuss in standup.',
-      },
-      {
-        id: '3',
-        from: 'priya.patel@vcfirm.com',
-        subject: 'Board meeting preparation',
-        preview: 'Board materials ready for review. Can you check the metrics section?...',
-        date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-        read: true,
-        body: 'Board materials ready for review. Can you check the metrics section? I added the new KPIs we discussed. Let me know if anything needs adjustment.',
-      },
-      {
-        id: '4',
-        from: 'james.o@vcfirm.com',
-        subject: 'New portfolio company onboarding',
-        preview: 'Excited to share the new onboarding plan for the Series A company...',
-        date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-        read: false,
-        body: 'Excited to share the new onboarding plan for the Series A company. First 90 days focuses on hiring and product roadmap clarity. Full plan attached.',
-      },
-      {
-        id: '5',
-        from: 'emily.t@vcfirm.com',
-        subject: 'Budget planning for next quarter',
-        preview: 'Next quarter budget proposals are in. Need approval by end of week...',
-        date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-        read: true,
-        body: 'Next quarter budget proposals are in. Need approval by end of week. All departmental budgets attached in the spreadsheet.',
-      },
-    ]
-    setEmails(mockEmails)
-  }, [])
+    const fetchEmails = async () => {
+      setLoading(true)
+      setError(null)
+
+      // If no provider token, use mock data
+      if (!providerToken) {
+        const mockEmails = [
+          {
+            id: '1',
+            from: 'sarah.chen@vcfirm.com',
+            subject: 'Q2 LP Update Meeting',
+            preview: 'Hi team, let\'s schedule the Q2 LP update meeting for next month...',
+            date: new Date(Date.now() - 2 * 60 * 60 * 1000),
+            read: true,
+            body: 'Hi team, let\'s schedule the Q2 LP update meeting for next month. I\'ll send out the deck by EOD Friday. Please prepare your portfolio updates.',
+          },
+          {
+            id: '2',
+            from: 'marcus.w@vcfirm.com',
+            subject: 'Portfolio company check-in',
+            preview: 'Quick update on Q2 performance. Most companies tracking well...',
+            date: new Date(Date.now() - 4 * 60 * 60 * 1000),
+            read: false,
+            body: 'Quick update on Q2 performance. Most companies tracking well against plan. A few need attention on hiring. Will discuss in standup.',
+          },
+          {
+            id: '3',
+            from: 'priya.patel@vcfirm.com',
+            subject: 'Board meeting preparation',
+            preview: 'Board materials ready for review. Can you check the metrics section?...',
+            date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+            read: true,
+            body: 'Board materials ready for review. Can you check the metrics section? I added the new KPIs we discussed. Let me know if anything needs adjustment.',
+          },
+          {
+            id: '4',
+            from: 'james.o@vcfirm.com',
+            subject: 'New portfolio company onboarding',
+            preview: 'Excited to share the new onboarding plan for the Series A company...',
+            date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+            read: false,
+            body: 'Excited to share the new onboarding plan for the Series A company. First 90 days focuses on hiring and product roadmap clarity. Full plan attached.',
+          },
+          {
+            id: '5',
+            from: 'emily.t@vcfirm.com',
+            subject: 'Budget planning for next quarter',
+            preview: 'Next quarter budget proposals are in. Need approval by end of week...',
+            date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+            read: true,
+            body: 'Next quarter budget proposals are in. Need approval by end of week. All departmental budgets attached in the spreadsheet.',
+          },
+        ]
+        setEmails(mockEmails)
+        setLoading(false)
+        return
+      }
+
+      try {
+        const response = await fetch('/api/gmail/list', {
+          headers: {
+            'Authorization': `Bearer ${providerToken}`,
+          },
+        })
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch emails')
+        }
+
+        const data = await response.json()
+        // Ensure dates are parsed as Date objects
+        const processedEmails = data.map(email => ({
+          ...email,
+          date: new Date(email.date),
+        }))
+        setEmails(processedEmails)
+      } catch (err) {
+        console.error('Error fetching emails:', err)
+        setError('Failed to load emails. Using sample data.')
+        // Fallback to mock data on error
+        const mockEmails = [
+          {
+            id: '1',
+            from: 'sample@example.com',
+            subject: 'Sample email - connect your Google account for real emails',
+            preview: 'Click "Sign in with Google" to see your real Gmail inbox...',
+            date: new Date(),
+            read: true,
+            body: 'Sign in with your Google account to see your real Gmail inbox here.',
+          },
+        ]
+        setEmails(mockEmails)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchEmails()
+  }, [providerToken])
 
   const filteredEmails = emails.filter(email =>
     email.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
     email.from.toLowerCase().includes(searchQuery.toLowerCase()) ||
     email.preview.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  const handleEmailAction = async (action) => {
+    if (!selectedEmail || !providerToken) return
+
+    setActionLoading(action)
+    try {
+      const response = await fetch('/api/gmail/action', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${providerToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action,
+          messageId: selectedEmail.id,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to ${action}`)
+      }
+
+      // Update local state
+      if (action === 'markRead') {
+        setEmails(emails.map(e =>
+          e.id === selectedEmail.id ? { ...e, read: true } : e
+        ))
+        setSelectedEmail({ ...selectedEmail, read: true })
+      } else if (action === 'archive') {
+        setEmails(emails.filter(e => e.id !== selectedEmail.id))
+        setSelectedEmail(null)
+      }
+    } catch (err) {
+      console.error(`Error performing ${action}:`, err)
+      setError(`Failed to ${action} email`)
+    } finally {
+      setActionLoading(null)
+    }
+  }
 
   const handleCreateTask = async (e) => {
     e.preventDefault()
@@ -117,6 +210,13 @@ export default function EmailTab() {
     <div className="p-6 h-full flex gap-6 max-w-7xl">
       {/* Email List */}
       <div className="w-96 flex flex-col border-r border-gray-200 dark:border-gray-700">
+        {/* Error Message */}
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+          </div>
+        )}
+
         {/* Search */}
         <div className="mb-4 flex-shrink-0">
           <div className="relative">
@@ -133,7 +233,16 @@ export default function EmailTab() {
 
         {/* Email Items */}
         <div className="flex-1 overflow-y-auto space-y-1">
-          {filteredEmails.map(email => (
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader size={20} className="animate-spin text-indigo-600" />
+            </div>
+          ) : filteredEmails.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-sm text-gray-500 dark:text-gray-400">No emails found</p>
+            </div>
+          ) : (
+            filteredEmails.map(email => (
             <button
               key={email.id}
               onClick={() => setSelectedEmail(email)}
@@ -168,7 +277,8 @@ export default function EmailTab() {
                 </div>
               </div>
             </button>
-          ))}
+            ))
+          )}
         </div>
       </div>
 
@@ -207,12 +317,28 @@ export default function EmailTab() {
 
           {/* Actions */}
           <div className="flex-shrink-0 pt-4 border-t border-gray-200 dark:border-gray-700 flex gap-2">
-            <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700">
-              <CheckSquare size={16} />
+            <button
+              onClick={() => handleEmailAction('markRead')}
+              disabled={actionLoading === 'markRead' || !providerToken}
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {actionLoading === 'markRead' ? (
+                <Loader size={16} className="animate-spin" />
+              ) : (
+                <CheckSquare size={16} />
+              )}
               Mark Read
             </button>
-            <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700">
-              <Archive size={16} />
+            <button
+              onClick={() => handleEmailAction('archive')}
+              disabled={actionLoading === 'archive' || !providerToken}
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {actionLoading === 'archive' ? (
+                <Loader size={16} className="animate-spin" />
+              ) : (
+                <Archive size={16} />
+              )}
               Archive
             </button>
             <button
