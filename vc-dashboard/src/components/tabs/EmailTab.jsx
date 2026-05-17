@@ -217,14 +217,14 @@ export default function EmailTab() {
           </div>
         )}
 
-        {/* Connect Gmail or Search */}
-        {!googleToken ? (
+        {/* Connect/Reconnect Gmail or Search */}
+        {!googleToken || error ? (
           <button
             onClick={connectGmail}
             className="w-full mb-4 flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium"
           >
             <LogIn size={16} />
-            Connect Gmail
+            {error ? 'Reconnect Gmail' : 'Connect Gmail'}
           </button>
         ) : (
           <div className="mb-4 flex-shrink-0">
