@@ -18,8 +18,15 @@ export function useAuth() {
     }
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
+      const userData = session?.user ?? null
+      setUser(userData)
       setSession(session)
+      if (userData?.email) {
+        console.log('User session email:', userData.email)
+        localStorage.setItem('user_email', userData.email)
+      } else if (userData) {
+        console.log('No email found in user object:', userData)
+      }
       // Try to get provider_token from session (some versions of Supabase include it)
       if (session?.provider_token) {
         localStorage.setItem('provider_token', session.provider_token)
@@ -28,8 +35,13 @@ export function useAuth() {
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
+      const userData = session?.user ?? null
+      setUser(userData)
       setSession(session)
+      if (userData?.email) {
+        console.log('Auth state change email:', userData.email)
+        localStorage.setItem('user_email', userData.email)
+      }
       if (session?.provider_token) {
         localStorage.setItem('provider_token', session.provider_token)
       }
@@ -46,14 +58,19 @@ export function useAuth() {
       },
     })
 
-  const signInWithEmail = (email, password) =>
-    supabase.auth.signInWithPassword({ email, password })
+  const signInWithEmail = (email, password) => {
+    localStorage.setItem('user_email', email)
+    return supabase.auth.signInWithPassword({ email, password })
+  }
 
-  const signUpWithEmail = (email, password) =>
-    supabase.auth.signUp({ email, password })
+  const signUpWithEmail = (email, password) => {
+    localStorage.setItem('user_email', email)
+    return supabase.auth.signUp({ email, password })
+  }
 
   const signOut = () => {
     localStorage.removeItem('provider_token')
+    localStorage.removeItem('user_email')
     return supabase.auth.signOut()
   }
 

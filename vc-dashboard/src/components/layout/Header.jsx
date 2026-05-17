@@ -7,11 +7,14 @@ export default function Header({ theme, toggleTheme }) {
   const { user, signOut } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
 
+  // Use email from user object or fallback to localStorage
+  const userEmail = user?.email || localStorage.getItem('user_email')
+
   const initials = user?.user_metadata?.full_name
     ? user.user_metadata.full_name.split(' ').map(n => n[0]).join('').toUpperCase()
-    : user?.email?.[0]?.toUpperCase() ?? 'U'
+    : userEmail?.[0]?.toUpperCase() ?? 'U'
 
-  const displayName = user?.user_metadata?.full_name ?? user?.email ?? 'User'
+  const displayName = user?.user_metadata?.full_name ?? userEmail ?? 'User'
 
   return (
     <header className="h-14 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex items-center justify-between px-6 shrink-0">
@@ -58,7 +61,7 @@ export default function Header({ theme, toggleTheme }) {
           {menuOpen && (
             <div className="absolute right-0 mt-1 w-44 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg py-1 z-50">
               <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-700">
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user?.email}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{userEmail}</p>
               </div>
               <button
                 onClick={() => { signOut(); setMenuOpen(false) }}
