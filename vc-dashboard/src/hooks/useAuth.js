@@ -10,12 +10,18 @@ export function useAuth() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
       setSession(session)
+      if (session?.provider_token) {
+        localStorage.setItem('provider_token', session.provider_token)
+      }
       setLoading(false)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
       setSession(session)
+      if (session?.provider_token) {
+        localStorage.setItem('provider_token', session.provider_token)
+      }
     })
 
     return () => subscription.unsubscribe()
@@ -36,9 +42,12 @@ export function useAuth() {
   const signUpWithEmail = (email, password) =>
     supabase.auth.signUp({ email, password })
 
-  const signOut = () => supabase.auth.signOut()
+  const signOut = () => {
+    localStorage.removeItem('provider_token')
+    return supabase.auth.signOut()
+  }
 
-  const providerToken = session?.provider_token || null
+  const providerToken = session?.provider_token || localStorage.getItem('provider_token')
 
   return { user, loading, providerToken, signInWithGoogle, signInWithEmail, signUpWithEmail, signOut }
 }
