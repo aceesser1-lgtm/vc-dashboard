@@ -7,9 +7,20 @@ export function useAuth() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Check for token in URL hash (from OAuth callback)
+    const hash = window.location.hash
+    if (hash.includes('provider_token=')) {
+      const params = new URLSearchParams(hash.slice(1))
+      const token = params.get('provider_token')
+      if (token) {
+        localStorage.setItem('provider_token', token)
+      }
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
       setSession(session)
+      // Try to get provider_token from session (some versions of Supabase include it)
       if (session?.provider_token) {
         localStorage.setItem('provider_token', session.provider_token)
       }
@@ -32,7 +43,6 @@ export function useAuth() {
       provider: 'google',
       options: {
         redirectTo: window.location.origin,
-        scopes: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar',
       },
     })
 
