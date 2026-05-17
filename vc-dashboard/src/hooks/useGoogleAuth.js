@@ -39,6 +39,7 @@ export function useGoogleAuth() {
       authUrl.searchParams.append('response_type', responseType)
       authUrl.searchParams.append('scope', scope)
       authUrl.searchParams.append('access_type', 'offline')
+      authUrl.searchParams.append('prompt', 'consent')
 
       window.location.href = authUrl.toString()
     } catch (err) {
