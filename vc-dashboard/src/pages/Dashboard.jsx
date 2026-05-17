@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import Header from '../components/layout/Header'
 import Navigation from '../components/layout/Navigation'
 import ChatSidebar from '../components/layout/ChatSidebar'
@@ -22,10 +23,18 @@ const TAB_COMPONENTS = {
 }
 
 export default function Dashboard() {
+  const [searchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState('dashboard')
   const [chatOpen, setChatOpen] = useState(true)
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') ?? 'light')
   const { toasts, addToast, removeToast } = useToast()
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab')
+    if (tabParam && TAB_COMPONENTS[tabParam]) {
+      setActiveTab(tabParam)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
