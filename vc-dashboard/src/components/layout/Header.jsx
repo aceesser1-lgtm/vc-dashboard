@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { Sun, Moon, LogOut, ChevronDown } from 'lucide-react'
+import RealtimeIndicator from '../ui/RealtimeIndicator'
 
 export default function Header({ theme, toggleTheme }) {
   const { user, signOut } = useAuth()
@@ -25,7 +26,10 @@ export default function Header({ theme, toggleTheme }) {
       </div>
 
       {/* Right side */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4">
+        {/* Realtime indicator */}
+        <RealtimeIndicator />
+
         {/* Theme toggle */}
         <button
           onClick={toggleTheme}

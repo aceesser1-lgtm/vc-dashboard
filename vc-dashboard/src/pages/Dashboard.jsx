@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react'
 import Header from '../components/layout/Header'
 import Navigation from '../components/layout/Navigation'
 import ChatSidebar from '../components/layout/ChatSidebar'
+import Toast from '../components/ui/Toast'
 import DashboardTab from '../components/tabs/DashboardTab'
 import EmailTab from '../components/tabs/EmailTab'
 import EventsTab from '../components/tabs/EventsTab'
 import OfficeTab from '../components/tabs/OfficeTab'
 import TeamTab from '../components/tabs/TeamTab'
 import OnboardingTab from '../components/tabs/OnboardingTab'
+import { useToast } from '../hooks/useToast'
 import { MessageSquare } from 'lucide-react'
 
 const TAB_COMPONENTS = {
@@ -23,6 +25,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [chatOpen, setChatOpen] = useState(true)
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') ?? 'light')
+  const { toasts, addToast, removeToast } = useToast()
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
@@ -61,6 +64,9 @@ export default function Dashboard() {
           <MessageSquare size={18} />
         </button>
       )}
+
+      {/* Toast notifications */}
+      <Toast toasts={toasts} removeToast={removeToast} />
     </div>
   )
 }
