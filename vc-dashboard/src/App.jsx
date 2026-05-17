@@ -1,9 +1,15 @@
 import { useAuth } from './hooks/useAuth'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
+import GoogleCallback from './pages/GoogleCallback'
 
 export default function App() {
   const { user, loading } = useAuth()
+
+  // Handle Google OAuth callback
+  if (window.location.pathname === '/auth/google-callback') {
+    return <GoogleCallback />
+  }
 
   if (loading) {
     return (

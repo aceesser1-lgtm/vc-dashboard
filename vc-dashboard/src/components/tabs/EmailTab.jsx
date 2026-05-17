@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useRealtime } from '../../hooks/useRealtime'
-import { useAuth } from '../../hooks/useAuth'
-import { Mail, Search, Archive, CheckSquare, Plus, X, Loader } from 'lucide-react'
+import { useGoogleAuth } from '../../hooks/useGoogleAuth'
+import { Mail, Search, Archive, CheckSquare, Plus, X, Loader, LogIn } from 'lucide-react'
 
 export default function EmailTab() {
-  const { providerToken } = useAuth()
+  const { token: googleToken, signIn: connectGmail } = useGoogleAuth()
   const { data: tasks } = useRealtime('tasks')
   const [emails, setEmails] = useState([])
   const [selectedEmail, setSelectedEmail] = useState(null)
@@ -27,8 +27,8 @@ export default function EmailTab() {
       setLoading(true)
       setError(null)
 
-      // If no provider token, use mock data
-      if (!providerToken) {
+      // If no Google token, use mock data
+      if (!googleToken) {
         const mockEmails = [
           {
             id: '1',
@@ -84,7 +84,7 @@ export default function EmailTab() {
       try {
         const response = await fetch('/api/gmail/list', {
           headers: {
-            'Authorization': `Bearer ${providerToken}`,
+            'Authorization': `Bearer ${googleToken}`,
           },
         })
 
@@ -121,7 +121,7 @@ export default function EmailTab() {
     }
 
     fetchEmails()
-  }, [providerToken])
+  }, [googleToken])
 
   const filteredEmails = emails.filter(email =>
     email.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -130,14 +130,14 @@ export default function EmailTab() {
   )
 
   const handleEmailAction = async (action) => {
-    if (!selectedEmail || !providerToken) return
+    if (!selectedEmail || !googleToken) return
 
     setActionLoading(action)
     try {
       const response = await fetch('/api/gmail/action', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${providerToken}`,
+          'Authorization': `Bearer ${googleToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -217,19 +217,29 @@ export default function EmailTab() {
           </div>
         )}
 
-        {/* Search */}
-        <div className="mb-4 flex-shrink-0">
-          <div className="relative">
-            <Search size={16} className="absolute left-3 top-3 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search emails..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
+        {/* Connect Gmail or Search */}
+        {!googleToken ? (
+          <button
+            onClick={connectGmail}
+            className="w-full mb-4 flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium"
+          >
+            <LogIn size={16} />
+            Connect Gmail
+          </button>
+        ) : (
+          <div className="mb-4 flex-shrink-0">
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-3 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search emails..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Email Items */}
         <div className="flex-1 overflow-y-auto space-y-1">
@@ -319,7 +329,7 @@ export default function EmailTab() {
           <div className="flex-shrink-0 pt-4 border-t border-gray-200 dark:border-gray-700 flex gap-2">
             <button
               onClick={() => handleEmailAction('markRead')}
-              disabled={actionLoading === 'markRead' || !providerToken}
+              disabled={actionLoading === 'markRead' || !googleToken}
               className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {actionLoading === 'markRead' ? (
@@ -331,7 +341,7 @@ export default function EmailTab() {
             </button>
             <button
               onClick={() => handleEmailAction('archive')}
-              disabled={actionLoading === 'archive' || !providerToken}
+              disabled={actionLoading === 'archive' || !googleToken}
               className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {actionLoading === 'archive' ? (
